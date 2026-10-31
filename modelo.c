@@ -4,9 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-
-#define SEM_REGISTROS "Nenhum registro encontrado"
 
 //
 // MONTAGEM DAS LISTAS
@@ -160,7 +157,7 @@ void adicionar_linha(Modelo *modelo, const char *formato, ...) {
   s->qtd++;
 }
 
-static void liberar_modelo(Modelo *modelo) {
+void liberar_modelo(Modelo *modelo) {
   Secao *s = modelo->secoes;
   while (s != NULL) {
     Linha *l = s->linhas;
@@ -179,11 +176,11 @@ static void liberar_modelo(Modelo *modelo) {
 }
 
 //
-// GERACAO DO TXT
+// FORMATO E RESUMOS (o que vai no fim de cada secao e no rodape)
 //
 
 // escreve o valor do jeito que o campo pede: "39.90" vira "R$ 39,90" (moeda)
-static void formatar(const Campo *c, const char *valor, char *destino) {
+void formatar_valor(const Campo *c, const char *valor, char *destino) {
   char *fim;
   double numero = strtod(valor, &fim);
 
@@ -197,186 +194,48 @@ static void formatar(const Campo *c, const char *valor, char *destino) {
     *ponto = ','; // padrao brasileiro
 }
 
-// soma a coluna nas linhas de uma secao (ou de todas, quando s == NULL)
-static double somar(const Modelo *modelo, const Secao *s, int coluna) {
+// soma uma coluna numa lista de linhas
+static double somar_linhas(const Linha *l, int coluna) {
   double soma = 0;
-  for (const Secao *x = modelo->secoes; x != NULL; x = x->prox)
-    if (s == NULL || x == s)
-      for (const Linha *l = x->linhas; l != NULL; l = l->prox)
-        soma += atof(l->valor[coluna]);
+  for (; l != NULL; l = l->prox)
+    soma += atof(l->valor[coluna]);
   return soma;
 }
 
-static int contar(const Modelo *modelo, const Secao *s) {
-  int total = 0;
-  for (const Secao *x = modelo->secoes; x != NULL; x = x->prox)
-    if (s == NULL || x == s)
-      total += x->qtd;
-  return total;
+// "Soma de Valor: R$ 79,80"
+static void texto_soma(const Campo *c, double soma, char *destino) {
+  char numero[TAM_VALOR], valor[TAM_VALOR];
+  snprintf(numero, TAM_VALOR, "%f", soma);
+  formatar_valor(c, numero, valor);
+  snprintf(destino, TAM_VALOR, "Soma de %.30s: %.60s", c->nome, valor);
 }
 
-// textos do fim de uma secao (s != NULL) ou do rodape (s == NULL); devolve quantos sao
-static int montar_resumo(const Modelo *modelo, const Secao *s, char texto[][TAM_VALOR]) {
-  char numero[TAM_VALOR], valor[TAM_VALOR];
+int resumo_secao(const Modelo *modelo, const Secao *s, char texto[][TAM_VALOR]) {
   int n = 0;
+  snprintf(texto[n++], TAM_VALOR, "Registros na secao: %d", s->qtd);
+  for (const Campo *c = modelo->campos; c != NULL; c = c->prox)
+    if (c->somar && c->tipo != TEXTO)
+      texto_soma(c, somar_linhas(s->linhas, c->coluna), texto[n++]);
+  return n;
+}
 
-  if (s != NULL || modelo->mostrar_total)
-    snprintf(texto[n++], TAM_VALOR, "%s: %d", s != NULL ? "Registros na secao" : "Total de registros", contar(modelo, s));
-
+int resumo_rodape(const Modelo *modelo, char texto[][TAM_VALOR]) {
+  int n = 0;
+  if (modelo->mostrar_total)
+    snprintf(texto[n++], TAM_VALOR, "Total de registros: %d", total_registros(modelo));
   for (const Campo *c = modelo->campos; c != NULL; c = c->prox)
     if (c->somar && c->tipo != TEXTO) {
-      snprintf(numero, TAM_VALOR, "%f", somar(modelo, s, c->coluna));
-      formatar(c, numero, valor);
-      snprintf(texto[n++], TAM_VALOR, "Soma de %.30s: %.60s", c->nome, valor);
+      double soma = 0;
+      for (const Secao *s = modelo->secoes; s != NULL; s = s->prox)
+        soma += somar_linhas(s->linhas, c->coluna);
+      texto_soma(c, soma, texto[n++]);
     }
   return n;
 }
 
-static int maior(int largura, const char *texto) {
-  int n = (int)strlen(texto);
-  return n > largura ? n : largura;
-}
-
-// largura do texto numa linha que ocupa a tabela toda: "| texto |"
-static int largura_interna(const Modelo *modelo) {
+int total_registros(const Modelo *modelo) {
   int total = 0;
-  for (const Campo *c = modelo->campos; c != NULL; c = c->prox)
-    total += c->largura + 3; // "| " + valor + " "
-  return total - 3;
-}
-
-// cada coluna fica do tamanho do maior valor; se titulo, secoes ou rodape
-// nao couberem na tabela, a ultima coluna cresce
-static void calcular_larguras(Modelo *modelo, const char *data) {
-  char texto[MAX_CAMPOS + 1][TAM_VALOR];
-  Campo *c, *ultimo = NULL;
-  int precisa = maior(maior(0, modelo->titulo), data), n, i;
-
-  for (c = modelo->campos; c != NULL; c = c->prox) {
-    c->largura = maior(0, c->nome);
-    for (Secao *s = modelo->secoes; s != NULL; s = s->prox)
-      for (Linha *l = s->linhas; l != NULL; l = l->prox) {
-        formatar(c, l->valor[c->coluna], texto[0]);
-        c->largura = maior(c->largura, texto[0]);
-      }
-    ultimo = c;
-  }
-
-  if (modelo->secoes == NULL)
-    precisa = maior(precisa, SEM_REGISTROS);
-  if (modelo->coluna_secao >= 0)
-    for (Secao *s = modelo->secoes; s != NULL; s = s->prox) {
-      precisa = maior(precisa, s->titulo);
-      n = montar_resumo(modelo, s, texto);
-      for (i = 0; i < n; i++)
-        precisa = maior(precisa, texto[i]);
-    }
-  n = montar_resumo(modelo, NULL, texto);
-  for (i = 0; i < n; i++)
-    precisa = maior(precisa, texto[i]);
-
-  if (ultimo != NULL && precisa > largura_interna(modelo))
-    ultimo->largura += precisa - largura_interna(modelo);
-}
-
-// +-----+------+ (com colunas) ou +------------+ (sem colunas)
-static void borda(FILE *f, const Modelo *modelo, int com_colunas) {
-  fputc('+', f);
-  for (const Campo *c = modelo->campos; c != NULL; c = c->prox) {
-    for (int j = 0; j < c->largura + 2; j++)
-      fputc('-', f);
-    fputc(c->prox == NULL || com_colunas ? '+' : '-', f);
-  }
-  fputc('\n', f);
-}
-
-static void linha_cheia(FILE *f, const Modelo *modelo, const char *texto) {
-  fprintf(f, "| %-*s |\n", largura_interna(modelo), texto);
-}
-
-// uma linha da tabela; com l == NULL escreve os nomes dos campos
-// texto fica alinhado a esquerda e numero a direita
-static void linha_tabela(FILE *f, const Modelo *modelo, const Linha *l) {
-  char valor[TAM_VALOR];
-  for (const Campo *c = modelo->campos; c != NULL; c = c->prox) {
-    if (l != NULL)
-      formatar(c, l->valor[c->coluna], valor);
-    else
-      snprintf(valor, TAM_VALOR, "%s", c->nome);
-    fprintf(f, c->tipo == TEXTO ? "| %-*s " : "| %*s ", c->largura, valor);
-  }
-  fprintf(f, "|\n");
-}
-
-static void cabecalho_tabela(FILE *f, const Modelo *modelo) {
-  borda(f, modelo, 1);
-  linha_tabela(f, modelo, NULL);
-  borda(f, modelo, 1);
-}
-
-void gravar_relatorio(Modelo *modelo, const char *caminho) {
-  char data[40] = "", texto[MAX_CAMPOS + 1][TAM_VALOR];
-  int n, i;
-  FILE *f = fopen(caminho, "w");
-
-  if (f == NULL) {
-    printf("Erro ao criar o arquivo '%s' (a pasta output existe?)\n", caminho);
-    liberar_modelo(modelo);
-    return;
-  }
-
-  if (modelo->mostrar_data) {
-    time_t agora = time(NULL);
-    strftime(data, sizeof(data), "Gerado em %d/%m/%Y %H:%M", localtime(&agora));
-  }
-  calcular_larguras(modelo, data);
-
-  // area 1: cabecalho
-  borda(f, modelo, 0);
-  linha_cheia(f, modelo, modelo->titulo);
-  if (modelo->mostrar_data)
-    linha_cheia(f, modelo, data);
-  borda(f, modelo, 0);
-
-  // area 2: corpo, uma tabela por secao
-  if (modelo->secoes == NULL) {
-    fputc('\n', f);
-    cabecalho_tabela(f, modelo);
-    linha_cheia(f, modelo, SEM_REGISTROS);
-    borda(f, modelo, 0);
-  }
-  for (Secao *s = modelo->secoes; s != NULL; s = s->prox) {
-    fputc('\n', f);
-    if (modelo->coluna_secao >= 0) {
-      borda(f, modelo, 0);
-      linha_cheia(f, modelo, s->titulo);
-    }
-    cabecalho_tabela(f, modelo);
-    for (Linha *l = s->linhas; l != NULL; l = l->prox)
-      linha_tabela(f, modelo, l);
-    borda(f, modelo, 1);
-
-    if (modelo->coluna_secao >= 0) { // fim da secao
-      n = montar_resumo(modelo, s, texto);
-      for (i = 0; i < n; i++)
-        linha_cheia(f, modelo, texto[i]);
-      borda(f, modelo, 0);
-    }
-  }
-
-  // area 3: rodape
-  n = montar_resumo(modelo, NULL, texto);
-  if (n > 0) {
-    fputc('\n', f);
-    borda(f, modelo, 0);
-    for (i = 0; i < n; i++)
-      linha_cheia(f, modelo, texto[i]);
-    borda(f, modelo, 0);
-  }
-
-  if (fclose(f) != 0)
-    printf("Erro ao gravar o arquivo '%s'\n", caminho);
-  else
-    printf("Relatorio gerado em '%s' (%d registros)\n", caminho, contar(modelo, NULL));
-  liberar_modelo(modelo);
+  for (const Secao *s = modelo->secoes; s != NULL; s = s->prox)
+    total += s->qtd;
+  return total;
 }

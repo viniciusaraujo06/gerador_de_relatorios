@@ -1,13 +1,14 @@
 #include "relatorio.h"
 #include "interface.h"
-#include "modelo.h"
+#include "impressao.h"
 #include <stdio.h>
 
 // todo relatorio segue o mesmo roteiro:
 // 1. iniciar_modelo: titulo e campos padrao
 // 2. configurar_modelo: o usuario muda o que quiser em cada area
 // 3. adicionar_linha: uma linha por registro (valores separados por ';')
-// 4. gravar_relatorio: escreve o TXT e libera as listas
+// 4. gravar_relatorio: escreve o TXT
+// 5. liberar_modelo: libera as listas do modelo
 
 //
 // BUSCAS PELA CHAVE (ID) NAS LISTAS
@@ -65,6 +66,7 @@ void gerarRelatorioUsuariosAssinaturas(Usuario *usuarios, Assinatura *assinatura
       adicionar_linha(&modelo, "%d;%s;%s;%s;Nenhuma;-;-;-", u->id, u->nome, u->email, u->cpf);
   }
   gravar_relatorio(&modelo, caminho_saida);
+  liberar_modelo(&modelo);
 }
 
 // os 3 catalogos comecam com os mesmos campos da midia
@@ -92,6 +94,7 @@ void gerarRelatorioCatalogoMidias(Midia *midias, Filme *filmes, Serie *series, c
     adicionar_midia(&modelo, m, resto);
   }
   gravar_relatorio(&modelo, caminho_saida);
+  liberar_modelo(&modelo);
 }
 
 void gerarRelatorioCatalogoSeries(Midia *midias, Serie *series, const char *caminho_saida) {
@@ -108,6 +111,7 @@ void gerarRelatorioCatalogoSeries(Midia *midias, Serie *series, const char *cami
     adicionar_midia(&modelo, m, resto);
   }
   gravar_relatorio(&modelo, caminho_saida);
+  liberar_modelo(&modelo);
 }
 
 void gerarRelatorioCatalogoFilmes(Midia *midias, Filme *filmes, const char *caminho_saida) {
@@ -124,6 +128,7 @@ void gerarRelatorioCatalogoFilmes(Midia *midias, Filme *filmes, const char *cami
     adicionar_midia(&modelo, m, resto);
   }
   gravar_relatorio(&modelo, caminho_saida);
+  liberar_modelo(&modelo);
 }
 
 // um relatorio so para os 3 consumos: o que muda e o tipo de midia que entra
@@ -147,6 +152,7 @@ void gerarRelatorioConsumo(Usuario *usuarios, Midia *midias, MidiaConsumida *con
     adicionar_linha(&modelo, "%s;%s;%s;%.1f", u != NULL ? u->nome : "Desconhecido", m != NULL ? m->nome : "Desconhecida", c->favorito ? "Sim" : "Nao", c->avaliacao_usuario);
   }
   gravar_relatorio(&modelo, caminho_saida);
+  liberar_modelo(&modelo);
 }
 
 // percorre os usuarios (e nao as assinaturas): se dois usuarios usam a mesma
@@ -163,4 +169,5 @@ void gerarRelatorioFaturamentoPagamento(Usuario *usuarios, Assinatura *assinatur
       adicionar_linha(&modelo, "%s;%s;%s;%.2f", a->metodo_pagamento, u->nome, a->tipo, a->valor);
   }
   gravar_relatorio(&modelo, caminho_saida);
+  liberar_modelo(&modelo);
 }

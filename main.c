@@ -2,7 +2,7 @@
 #include "leitura.h"
 #include "relatorio.h"
 
-// compilar: gcc main.c leitura.c interface.c modelo.c relatorio.c -o main
+// compilar: gcc main.c leitura.c interface.c modelo.c impressao.c relatorio.c -o main
 // rodar de dentro desta pasta (para achar input/ e output/): ./main ou .\main.exe
 
 int main(void) {
