@@ -1,9 +1,11 @@
 #ifndef ENTIDADES_H
 #define ENTIDADES_H
 
+// uma struct por arquivo de entrada (tabela); cada uma e um no de lista encadeada
+
 typedef struct Assinatura {
   int id;
-  float valor;
+  double valor;
   char metodo_pagamento[50];
   char vencimento[20];
   char tipo[30];
@@ -27,13 +29,13 @@ typedef struct Midia {
   int duracao;
   char data_lancamento[20];
   float avaliacao_critica;
-  char tipo;
+  char tipo; // 'F' filme, 'S' serie
   struct Midia *prox;
 } Midia;
 
 typedef struct Filme {
   int id_midia; /* FK  */
-  float bilheteria;
+  double bilheteria;
   struct Filme *prox;
 } Filme;
 

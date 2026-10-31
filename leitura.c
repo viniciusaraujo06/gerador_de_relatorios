@@ -5,22 +5,20 @@
 
 #define TAM_LINHA 1024
 
-static void copia_campo(char *destino, const char *token, size_t tamanho) {
-  if (token == NULL) {
-    destino[0] = '\0';
-    return;
-  }
-  strncpy(destino, token, tamanho - 1);
-  destino[tamanho - 1] = '\0';
+void *alocar(size_t tamanho) {
+  void *p = malloc(tamanho);
+  if (p == NULL)
+    printf("Erro de alocacao de memoria\n");
+  return p;
 }
 
-// faz o papel do strtok, com duas diferencas:
-// - nao pula campo vazio ("1;;x" sao 3 campos, o strtok via so 2 e deslocava as colunas)
-// - aceita ';' ou <tab> como separador
-static char *proximo_campo(char **cursor) {
+// parecido com o strtok, mas nao pula campo vazio: "1;;x" sao 3 campos
+// (o strtok veria so 2 e deslocaria as colunas seguintes)
+char *proximo_campo(char **cursor) {
+  static char vazio[1] = "";
   char *inicio = *cursor;
   if (inicio == NULL)
-    return NULL;
+    return vazio;
 
   char *separador = inicio + strcspn(inicio, ";\t");
   if (*separador != '\0') {
@@ -32,294 +30,207 @@ static char *proximo_campo(char **cursor) {
   return inicio;
 }
 
-Assinatura *ler_assinaturas(const char *caminho) {
-  FILE *f = fopen(caminho, "r");
-  if (!f) {
-    printf("Erro ao abrir arquivo '%s'\n", caminho);
-    return NULL;
-  }
+static int campo_inteiro(char **cursor) { return atoi(proximo_campo(cursor)); }
 
+static double campo_numero(char **cursor) { return atof(proximo_campo(cursor)); }
+
+static void campo_texto(char **cursor, char *destino, size_t tamanho) {
+  snprintf(destino, tamanho, "%s", proximo_campo(cursor));
+}
+
+static FILE *abrir(const char *caminho) {
+  FILE *f = fopen(caminho, "r");
+  if (f == NULL)
+    printf("Erro ao abrir arquivo '%s'\n", caminho);
+  return f;
+}
+
+// le a proxima linha nao vazia, ja sem o "\n"; devolve 0 no fim do arquivo
+static int proxima_linha(FILE *f, char *linha) {
+  while (fgets(linha, TAM_LINHA, f) != NULL) {
+    linha[strcspn(linha, "\r\n")] = '\0';
+    if (linha[0] != '\0')
+      return 1;
+  }
+  return 0;
+}
+
+// todas as leituras seguem o mesmo roteiro:
+// abre o arquivo, cria um no por linha, preenche campo a campo
+// e poe o no no fim da lista (inicio = primeiro no, fim = ultimo)
+
+Assinatura *ler_assinaturas(const char *caminho) {
   Assinatura *inicio = NULL, *fim = NULL;
   char linha[TAM_LINHA];
+  FILE *f = abrir(caminho);
+  if (f == NULL)
+    return NULL;
 
-  while (fgets(linha, sizeof(linha), f)) {
-    linha[strcspn(linha, "\r\n")] = '\0';
-    if (strlen(linha) == 0)
-      continue;
-
-    Assinatura *a = malloc(sizeof(Assinatura));
-    if (!a) {
-      printf("Erro de alocacao de memoria\n");
+  while (proxima_linha(f, linha)) {
+    Assinatura *a = alocar(sizeof(Assinatura));
+    if (a == NULL)
       break;
-    }
-
     char *cursor = linha;
-    char *token = proximo_campo(&cursor);
-    a->id = token ? atoi(token) : 0;
-
-    token = proximo_campo(&cursor);
-    a->valor = token ? (float)atof(token) : 0.0f;
-
-    token = proximo_campo(&cursor);
-    copia_campo(a->metodo_pagamento, token, sizeof(a->metodo_pagamento));
-
-    token = proximo_campo(&cursor);
-    copia_campo(a->vencimento, token, sizeof(a->vencimento));
-
-    token = proximo_campo(&cursor);
-    copia_campo(a->tipo, token, sizeof(a->tipo));
+    a->id = campo_inteiro(&cursor);
+    a->valor = campo_numero(&cursor);
+    campo_texto(&cursor, a->metodo_pagamento, sizeof(a->metodo_pagamento));
+    campo_texto(&cursor, a->vencimento, sizeof(a->vencimento));
+    campo_texto(&cursor, a->tipo, sizeof(a->tipo));
 
     a->prox = NULL;
-    if (!inicio)
-      inicio = fim = a;
-    else {
+    if (inicio == NULL)
+      inicio = a;
+    else
       fim->prox = a;
-      fim = a;
-    }
+    fim = a;
   }
   fclose(f);
   return inicio;
 }
 
 Usuario *ler_usuarios(const char *caminho) {
-  FILE *f = fopen(caminho, "r");
-  if (!f) {
-    printf("Erro ao abrir arquivo '%s'\n", caminho);
-    return NULL;
-  }
-
   Usuario *inicio = NULL, *fim = NULL;
   char linha[TAM_LINHA];
+  FILE *f = abrir(caminho);
+  if (f == NULL)
+    return NULL;
 
-  while (fgets(linha, sizeof(linha), f)) {
-    linha[strcspn(linha, "\r\n")] = '\0';
-    if (strlen(linha) == 0)
-      continue;
-
-    Usuario *u = malloc(sizeof(Usuario));
-    if (!u) {
-      printf("Erro de alocacao de memoria\n");
+  while (proxima_linha(f, linha)) {
+    Usuario *u = alocar(sizeof(Usuario));
+    if (u == NULL)
       break;
-    }
-
     char *cursor = linha;
-    char *token = proximo_campo(&cursor);
-    u->id = token ? atoi(token) : 0;
-
-    token = proximo_campo(&cursor);
-    copia_campo(u->nome, token, sizeof(u->nome));
-
-    token = proximo_campo(&cursor);
-    copia_campo(u->email, token, sizeof(u->email));
-
-    token = proximo_campo(&cursor);
-    copia_campo(u->cpf, token, sizeof(u->cpf));
-
-    token = proximo_campo(&cursor);
-    u->id_assinatura = token ? atoi(token) : 0;
+    u->id = campo_inteiro(&cursor);
+    campo_texto(&cursor, u->nome, sizeof(u->nome));
+    campo_texto(&cursor, u->email, sizeof(u->email));
+    campo_texto(&cursor, u->cpf, sizeof(u->cpf));
+    u->id_assinatura = campo_inteiro(&cursor);
 
     u->prox = NULL;
-    if (!inicio)
-      inicio = fim = u;
-    else {
+    if (inicio == NULL)
+      inicio = u;
+    else
       fim->prox = u;
-      fim = u;
-    }
+    fim = u;
   }
   fclose(f);
   return inicio;
 }
 
-// filmes e series agora ficam nos proprios arquivos (filmes.txt e series.txt),
-// como as tabelas Filme e Serie do entidades.h
 Midia *ler_midias(const char *caminho) {
-  FILE *f = fopen(caminho, "r");
-  if (!f) {
-    printf("Erro ao abrir arquivo '%s'\n", caminho);
-    return NULL;
-  }
-
   Midia *inicio = NULL, *fim = NULL;
   char linha[TAM_LINHA];
+  FILE *f = abrir(caminho);
+  if (f == NULL)
+    return NULL;
 
-  while (fgets(linha, sizeof(linha), f)) {
-    linha[strcspn(linha, "\r\n")] = '\0';
-    if (strlen(linha) == 0)
-      continue;
-
-    Midia *m = malloc(sizeof(Midia));
-    if (!m) {
-      printf("Erro de alocacao de memoria\n");
+  while (proxima_linha(f, linha)) {
+    Midia *m = alocar(sizeof(Midia));
+    if (m == NULL)
       break;
-    }
-
     char *cursor = linha;
-    char *token = proximo_campo(&cursor);
-    m->id = token ? atoi(token) : 0;
-
-    token = proximo_campo(&cursor);
-    copia_campo(m->nome, token, sizeof(m->nome));
-
-    token = proximo_campo(&cursor);
-    copia_campo(m->categoria, token, sizeof(m->categoria));
-
-    token = proximo_campo(&cursor);
-    copia_campo(m->diretor, token, sizeof(m->diretor));
-
-    token = proximo_campo(&cursor);
-    m->duracao = token ? atoi(token) : 0;
-
-    token = proximo_campo(&cursor);
-    copia_campo(m->data_lancamento, token, sizeof(m->data_lancamento));
-
-    token = proximo_campo(&cursor);
-    m->avaliacao_critica = token ? (float)atof(token) : 0.0f;
-
-    token = proximo_campo(&cursor);
-    m->tipo = (token && token[0] != '\0') ? token[0] : 'F';
+    m->id = campo_inteiro(&cursor);
+    campo_texto(&cursor, m->nome, sizeof(m->nome));
+    campo_texto(&cursor, m->categoria, sizeof(m->categoria));
+    campo_texto(&cursor, m->diretor, sizeof(m->diretor));
+    m->duracao = campo_inteiro(&cursor);
+    campo_texto(&cursor, m->data_lancamento, sizeof(m->data_lancamento));
+    m->avaliacao_critica = (float)campo_numero(&cursor);
+    m->tipo = proximo_campo(&cursor)[0];
 
     m->prox = NULL;
-    if (!inicio)
-      inicio = fim = m;
-    else {
+    if (inicio == NULL)
+      inicio = m;
+    else
       fim->prox = m;
-      fim = m;
-    }
+    fim = m;
   }
   fclose(f);
   return inicio;
 }
 
 Filme *ler_filmes(const char *caminho) {
-  FILE *f = fopen(caminho, "r");
-  if (!f) {
-    printf("Erro ao abrir arquivo '%s'\n", caminho);
-    return NULL;
-  }
-
   Filme *inicio = NULL, *fim = NULL;
   char linha[TAM_LINHA];
+  FILE *f = abrir(caminho);
+  if (f == NULL)
+    return NULL;
 
-  while (fgets(linha, sizeof(linha), f)) {
-    linha[strcspn(linha, "\r\n")] = '\0';
-    if (strlen(linha) == 0)
-      continue;
-
-    Filme *filme = malloc(sizeof(Filme));
-    if (!filme) {
-      printf("Erro de alocacao de memoria\n");
+  while (proxima_linha(f, linha)) {
+    Filme *filme = alocar(sizeof(Filme));
+    if (filme == NULL)
       break;
-    }
-
     char *cursor = linha;
-    char *token = proximo_campo(&cursor);
-    filme->id_midia = token ? atoi(token) : 0;
-
-    token = proximo_campo(&cursor);
-    filme->bilheteria = token ? (float)atof(token) : 0.0f;
+    filme->id_midia = campo_inteiro(&cursor);
+    filme->bilheteria = campo_numero(&cursor);
 
     filme->prox = NULL;
-    if (!inicio)
-      inicio = fim = filme;
-    else {
+    if (inicio == NULL)
+      inicio = filme;
+    else
       fim->prox = filme;
-      fim = filme;
-    }
+    fim = filme;
   }
   fclose(f);
   return inicio;
 }
 
 Serie *ler_series(const char *caminho) {
-  FILE *f = fopen(caminho, "r");
-  if (!f) {
-    printf("Erro ao abrir arquivo '%s'\n", caminho);
-    return NULL;
-  }
-
   Serie *inicio = NULL, *fim = NULL;
   char linha[TAM_LINHA];
+  FILE *f = abrir(caminho);
+  if (f == NULL)
+    return NULL;
 
-  while (fgets(linha, sizeof(linha), f)) {
-    linha[strcspn(linha, "\r\n")] = '\0';
-    if (strlen(linha) == 0)
-      continue;
-
-    Serie *serie = malloc(sizeof(Serie));
-    if (!serie) {
-      printf("Erro de alocacao de memoria\n");
+  while (proxima_linha(f, linha)) {
+    Serie *s = alocar(sizeof(Serie));
+    if (s == NULL)
       break;
-    }
-
     char *cursor = linha;
-    char *token = proximo_campo(&cursor);
-    serie->id_midia = token ? atoi(token) : 0;
+    s->id_midia = campo_inteiro(&cursor);
+    s->numero_episodios = campo_inteiro(&cursor);
+    s->numero_temporadas = campo_inteiro(&cursor);
 
-    token = proximo_campo(&cursor);
-    serie->numero_episodios = token ? atoi(token) : 0;
-
-    token = proximo_campo(&cursor);
-    serie->numero_temporadas = token ? atoi(token) : 0;
-
-    serie->prox = NULL;
-    if (!inicio)
-      inicio = fim = serie;
-    else {
-      fim->prox = serie;
-      fim = serie;
-    }
+    s->prox = NULL;
+    if (inicio == NULL)
+      inicio = s;
+    else
+      fim->prox = s;
+    fim = s;
   }
   fclose(f);
   return inicio;
 }
 
 MidiaConsumida *ler_midias_consumidas(const char *caminho) {
-  FILE *f = fopen(caminho, "r");
-  if (!f) {
-    printf("Erro ao abrir arquivo '%s'\n", caminho);
-    return NULL;
-  }
-
   MidiaConsumida *inicio = NULL, *fim = NULL;
   char linha[TAM_LINHA];
+  FILE *f = abrir(caminho);
+  if (f == NULL)
+    return NULL;
 
-  while (fgets(linha, sizeof(linha), f)) {
-    linha[strcspn(linha, "\r\n")] = '\0';
-    if (strlen(linha) == 0)
-      continue;
-
-    MidiaConsumida *mc = malloc(sizeof(MidiaConsumida));
-    if (!mc) {
-      printf("Erro de alocacao de memoria\n");
+  while (proxima_linha(f, linha)) {
+    MidiaConsumida *mc = alocar(sizeof(MidiaConsumida));
+    if (mc == NULL)
       break;
-    }
-
     char *cursor = linha;
-    char *token = proximo_campo(&cursor);
-    mc->id_usuario = token ? atoi(token) : 0;
-
-    token = proximo_campo(&cursor);
-    mc->id_midia = token ? atoi(token) : 0;
-
-    token = proximo_campo(&cursor);
-    mc->favorito = token ? atoi(token) : 0;
-
-    token = proximo_campo(&cursor);
-    mc->avaliacao_usuario = token ? (float)atof(token) : 0.0f;
+    mc->id_usuario = campo_inteiro(&cursor);
+    mc->id_midia = campo_inteiro(&cursor);
+    mc->favorito = campo_inteiro(&cursor);
+    mc->avaliacao_usuario = (float)campo_numero(&cursor);
 
     mc->prox = NULL;
-    if (!inicio)
-      inicio = fim = mc;
-    else {
+    if (inicio == NULL)
+      inicio = mc;
+    else
       fim->prox = mc;
-      fim = mc;
-    }
+    fim = mc;
   }
   fclose(f);
   return inicio;
 }
 
-// liberacao das listas: guarda o proximo antes de dar free no atual
+// liberacao: guarda o proximo antes de dar free no atual
 
 void liberar_assinaturas(Assinatura *lista) {
   while (lista != NULL) {

@@ -1,8 +1,17 @@
 #ifndef LEITURA_H
 #define LEITURA_H
 
+#include <stddef.h>
 #include "entidades.h"
 
+// malloc que avisa quando falta memoria
+void *alocar(size_t tamanho);
+
+// devolve o proximo campo da linha (separados por ';' ou <tab>) e avanca o cursor;
+// quando a linha acaba devolve "" (campo vazio)
+char *proximo_campo(char **cursor);
+
+// cada funcao le um arquivo e devolve o inicio da lista, na ordem do arquivo
 Assinatura *ler_assinaturas(const char *caminho);
 Usuario *ler_usuarios(const char *caminho);
 Midia *ler_midias(const char *caminho);
