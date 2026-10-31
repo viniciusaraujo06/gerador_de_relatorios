@@ -122,28 +122,24 @@ void configurar_modelo(Modelo *modelo) {
 
   printf("\n[Area 2 - CORPO]\nCampos disponiveis:\n");
   listar_campos(modelo);
-  qtd = ler_numeros("Campos do relatorio, na ordem desejada (Enter = todos)",
-                    numeros, MAX_CAMPOS);
+  qtd = ler_numeros("Campos do relatorio, na ordem desejada (Enter = todos)", numeros, MAX_CAMPOS);
   escolher_campos(modelo, numeros, qtd);
 
   if (sim("Mudar nome, tipo e formato dos campos? (S/N)", 0))
     for (c = modelo->campos; c != NULL; c = c->prox) {
       printf("Campo %d\n", c->coluna + 1);
       ler_texto("  Nome", c->nome, TAM_NOME);
-      c->tipo = ler_letra("  Tipo (T = texto, I = inteiro, D = decimal, M = moeda)",
-                          "TIDM", c->tipo);
+      c->tipo = ler_letra("  Tipo (T = texto, I = inteiro, D = decimal, M = moeda)", "TIDM", c->tipo);
       if (c->tipo == DECIMAL || c->tipo == MOEDA)
         c->casas = ler_numero("  Formato: casas decimais", c->casas, 0, 6);
     }
 
   listar_campos(modelo);
-  definir_secao(modelo, ler_numero("Dividir em secoes pelo campo (0 = nao dividir)",
-                                   modelo->coluna_secao + 1, 0, modelo->qtd_campos) - 1);
+  definir_secao(modelo, ler_numero("Dividir em secoes pelo campo (0 = nao dividir)", modelo->coluna_secao + 1, 0, modelo->qtd_campos) - 1);
 
   printf("\n[Area 3 - RODAPE]\n");
   modelo->mostrar_total = sim("Mostrar total de registros? (S/N)", modelo->mostrar_total);
-  qtd = ler_numeros("Somar quais campos numericos? (Enter = manter, 0 = nenhum)",
-                    numeros, MAX_CAMPOS);
+  qtd = ler_numeros("Somar quais campos numericos? (Enter = manter, 0 = nenhum)", numeros, MAX_CAMPOS);
   if (qtd > 0) {
     for (c = modelo->campos; c != NULL; c = c->prox)
       c->somar = 0;

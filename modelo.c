@@ -144,8 +144,7 @@ void adicionar_linha(Modelo *modelo, const char *formato, ...) {
 
   // sem divisao, todas as linhas vao para uma secao so (titulo "")
   if (modelo->coluna_secao >= 0)
-    snprintf(titulo, TAM_VALOR, "%.30s: %.60s", modelo->nome_secao,
-             l->valor[modelo->coluna_secao]);
+    snprintf(titulo, TAM_VALOR, "%.30s: %.60s", modelo->nome_secao, l->valor[modelo->coluna_secao]);
   Secao *s = secao_com_titulo(modelo, titulo);
   if (s == NULL) {
     free(l);
@@ -192,8 +191,7 @@ static void formatar(const Campo *c, const char *valor, char *destino) {
     snprintf(destino, TAM_VALOR, "%s", valor);
     return;
   }
-  snprintf(destino, TAM_VALOR, "%s%.*f", c->tipo == MOEDA ? "R$ " : "",
-           c->tipo == INTEIRO ? 0 : c->casas, numero);
+  snprintf(destino, TAM_VALOR, "%s%.*f", c->tipo == MOEDA ? "R$ " : "", c->tipo == INTEIRO ? 0 : c->casas, numero);
   char *ponto = strchr(destino, '.');
   if (ponto != NULL)
     *ponto = ','; // padrao brasileiro
@@ -218,15 +216,12 @@ static int contar(const Modelo *modelo, const Secao *s) {
 }
 
 // textos do fim de uma secao (s != NULL) ou do rodape (s == NULL); devolve quantos sao
-static int montar_resumo(const Modelo *modelo, const Secao *s,
-                         char texto[][TAM_VALOR]) {
+static int montar_resumo(const Modelo *modelo, const Secao *s, char texto[][TAM_VALOR]) {
   char numero[TAM_VALOR], valor[TAM_VALOR];
   int n = 0;
 
   if (s != NULL || modelo->mostrar_total)
-    snprintf(texto[n++], TAM_VALOR, "%s: %d",
-             s != NULL ? "Registros na secao" : "Total de registros",
-             contar(modelo, s));
+    snprintf(texto[n++], TAM_VALOR, "%s: %d", s != NULL ? "Registros na secao" : "Total de registros", contar(modelo, s));
 
   for (const Campo *c = modelo->campos; c != NULL; c = c->prox)
     if (c->somar && c->tipo != TEXTO) {
@@ -382,7 +377,6 @@ void gravar_relatorio(Modelo *modelo, const char *caminho) {
   if (fclose(f) != 0)
     printf("Erro ao gravar o arquivo '%s'\n", caminho);
   else
-    printf("Relatorio gerado em '%s' (%d registros)\n", caminho,
-           contar(modelo, NULL));
+    printf("Relatorio gerado em '%s' (%d registros)\n", caminho, contar(modelo, NULL));
   liberar_modelo(modelo);
 }

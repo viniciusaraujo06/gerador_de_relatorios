@@ -18,8 +18,7 @@ int main(void) {
     opcao = menu_principal();
     switch (opcao) {
     case 1:
-      gerarRelatorioUsuariosAssinaturas(usuarios, assinaturas,
-                                        "output/relatorio-usuarios.txt");
+      gerarRelatorioUsuariosAssinaturas(usuarios, assinaturas, "output/relatorio-usuarios.txt");
       break;
     case 2:
       gerarRelatorioCatalogoMidias(midias, filmes, series, "output/relatorio-midias.txt");
@@ -31,20 +30,16 @@ int main(void) {
       gerarRelatorioCatalogoFilmes(midias, filmes, "output/relatorio-filmes.txt");
       break;
     case 5:
-      gerarRelatorioConsumo(usuarios, midias, consumidas, 0,
-                            "output/relatorio-consumo-midias.txt");
+      gerarRelatorioConsumo(usuarios, midias, consumidas, 0, "output/relatorio-consumo-midias.txt");
       break;
     case 6:
-      gerarRelatorioConsumo(usuarios, midias, consumidas, 'S',
-                            "output/relatorio-consumo-series.txt");
+      gerarRelatorioConsumo(usuarios, midias, consumidas, 'S', "output/relatorio-consumo-series.txt");
       break;
     case 7:
-      gerarRelatorioConsumo(usuarios, midias, consumidas, 'F',
-                            "output/relatorio-consumo-filmes.txt");
+      gerarRelatorioConsumo(usuarios, midias, consumidas, 'F', "output/relatorio-consumo-filmes.txt");
       break;
     case 8:
-      gerarRelatorioFaturamentoPagamento(usuarios, assinaturas,
-                                         "output/relatorio-faturamento.txt");
+      gerarRelatorioFaturamentoPagamento(usuarios, assinaturas, "output/relatorio-faturamento.txt");
       break;
     }
   }
